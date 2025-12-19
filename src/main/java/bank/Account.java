@@ -2,15 +2,14 @@ package bank;
 
 public class Account {
     private String iban;
-    private AccountType type;
+    private boolean isPremium;
     private int daysOverdrawn;
-    private double money;
-    private String currency;
+    private Money money;
     private Customer customer;
 
-    public Account(AccountType type, int daysOverdrawn) {
+    public Account(boolean isPremium, int daysOverdrawn) {
         super();
-        this.type = type;
+        this.isPremium = isPremium;
         this.daysOverdrawn = daysOverdrawn;
     }
 
@@ -21,7 +20,7 @@ public class Account {
     }
 
     private double overdraftCharge() {
-        if (type.isPremium()) {
+        if (isPremium) {
             double result = 10;
             if (getDaysOverdrawn() > 7)
                 result += (getDaysOverdrawn() - 7) * 1.0;
@@ -31,10 +30,37 @@ public class Account {
     }
 
     public double overdraftFee() {
-        if (type.isPremium()) {
+        if (isPremium) {
             return 0.10;
         } else {
             return 0.20;
+        }
+    }
+
+    public void withdraw(double sum, String currency, double companyOverdraftDiscount) {
+        if (!getCurrency().equals(currency)) {
+            throw new RuntimeException("Can't extract withdraw " + currency);
+        }
+
+        double currentMoney = getMoneyAmount();
+        double overdraftFee = overdraftFee();
+
+        if (isPremium) {
+            overdraftFee *= companyOverdraftDiscount;
+            if(companyOverdraftDiscount < 1.0) {
+                overdraftFee /= 2.0;
+            }
+        } else {
+            overdraftFee *= companyOverdraftDiscount;
+        }
+
+        if (currentMoney < 0) {
+            double totalCost = sum + (sum * overdraftFee);
+            // ВИПРАВЛЕНО ТУТ: було setMoneyAmount, стало setMoney
+            setMoney(currentMoney - totalCost);
+        } else {
+            // І ТУТ
+            setMoney(currentMoney - sum);
         }
     }
 
@@ -50,12 +76,25 @@ public class Account {
         this.iban = iban;
     }
 
-    public void setMoney(double money) {
+    // Цей метод ми викликаємо зверху
+    public void setMoney(double amount) {
+        this.money = new Money(amount, (this.money != null) ? this.money.getCurrency() : "EUR");
+    }
+
+    public void setMoney(Money money) {
         this.money = money;
     }
 
-    public double getMoney() {
-        return money;
+    public double getMoneyAmount() {
+        return money != null ? money.getAmount() : 0.0;
+    }
+
+    public String getCurrency() {
+        return money != null ? money.getCurrency() : "";
+    }
+
+    public void setCurrency(String currency) {
+        this.money = new Money(getMoneyAmount(), currency);
     }
 
     public Customer getCustomer() {
@@ -66,19 +105,15 @@ public class Account {
         this.customer = customer;
     }
 
-    public AccountType getType() {
-        return type;
+    public boolean isPremium() {
+        return isPremium;
     }
 
-    public String printCustomer() {
-        return customer.getName() + " " + customer.getEmail();
+    public String getTypeString() {
+        return isPremium ? "premium" : "normal";
     }
 
-    public String getCurrency() {
-        return currency;
-    }
-
-    public void setCurrency(String currency) {
-        this.currency = currency;
+    public String printAccountDetails() {
+        return "Account: IBAN: " + getIban() + ", Money: " + getMoneyAmount();
     }
 }
